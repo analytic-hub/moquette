@@ -15,10 +15,11 @@
  */
 package io.moquette.broker;
 
-import io.moquette.interception.BrokerInterceptor;
 import io.moquette.broker.subscriptions.ISubscriptionsDirectory;
 import io.moquette.broker.subscriptions.Subscription;
 import io.moquette.broker.subscriptions.Topic;
+import io.moquette.interception.Interceptor;
+import io.moquette.interception.SyncBrokerInterceptor;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.mqtt.*;
@@ -42,15 +43,19 @@ class PostOffice {
     private final ISubscriptionsDirectory subscriptions;
     private final IRetainedRepository retainedRepository;
     private SessionRegistry sessionRegistry;
-    private BrokerInterceptor interceptor;
+    private Interceptor interceptor;
+    // If this is true, all invocations of InterceptHandler must be done before sending ACK to clients
+    // This doesn't support QoS2 for now.
+    private boolean syncIntercept;
 
     PostOffice(ISubscriptionsDirectory subscriptions, IRetainedRepository retainedRepository,
-               SessionRegistry sessionRegistry, BrokerInterceptor interceptor, Authorizator authorizator) {
+               SessionRegistry sessionRegistry, Interceptor interceptor, Authorizator authorizator) {
         this.authorizator = authorizator;
         this.subscriptions = subscriptions;
         this.retainedRepository = retainedRepository;
         this.sessionRegistry = sessionRegistry;
         this.interceptor = interceptor;
+        syncIntercept = interceptor instanceof SyncBrokerInterceptor;
     }
 
     public void init(SessionRegistry sessionRegistry) {
@@ -192,6 +197,9 @@ class PostOffice {
 
         publish2Subscribers(payload, topic, AT_LEAST_ONCE);
 
+        if (syncIntercept) {
+            interceptor.notifyTopicPublished(msg, clientId, username);
+        }
         connection.sendPubAck(messageID);
 
         if (retain) {
@@ -202,7 +210,10 @@ class PostOffice {
                 retainedRepository.retain(topic, msg);
             }
         }
-        interceptor.notifyTopicPublished(msg, clientId, username);
+
+        if (!syncIntercept) {
+            interceptor.notifyTopicPublished(msg, clientId, username);
+        }
     }
 
     private void publish2Subscribers(ByteBuf origPayload, Topic topic, MqttQoS publishingQos) {

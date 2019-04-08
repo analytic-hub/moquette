@@ -18,6 +18,8 @@ package io.moquette.broker;
 import io.moquette.BrokerConstants;
 import io.moquette.broker.config.*;
 import io.moquette.interception.InterceptHandler;
+import io.moquette.interception.Interceptor;
+import io.moquette.interception.SyncBrokerInterceptor;
 import io.moquette.persistence.H2Builder;
 import io.moquette.persistence.MemorySubscriptionsRepository;
 import io.moquette.interception.BrokerInterceptor;
@@ -48,7 +50,7 @@ public class Server {
     private NewNettyAcceptor acceptor;
     private volatile boolean initialized;
     private PostOffice dispatcher;
-    private BrokerInterceptor interceptor;
+    private Interceptor interceptor;
     private H2Builder h2Builder;
     private SessionRegistry sessions;
 
@@ -251,7 +253,12 @@ public class Server {
                 observers.add(handler);
             }
         }
-        interceptor = new BrokerInterceptor(props, observers);
+        if (props.boolProp(BrokerConstants.BROKER_INTERCEPTOR_SYNC_MODE, false)) {
+            interceptor = new SyncBrokerInterceptor(observers);
+        }
+        else {
+            interceptor = new BrokerInterceptor(props, observers);
+        }
     }
 
     @SuppressWarnings("unchecked")
