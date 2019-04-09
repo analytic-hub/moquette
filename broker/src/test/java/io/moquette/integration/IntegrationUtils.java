@@ -17,6 +17,8 @@
 package io.moquette.integration;
 
 import java.io.File;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Properties;
 import static io.moquette.BrokerConstants.DEFAULT_MOQUETTE_STORE_H2_DB_FILENAME;
 import static io.moquette.BrokerConstants.PERSISTENT_STORE_PROPERTY_NAME;
@@ -30,7 +32,10 @@ public final class IntegrationUtils {
 
     static String localH2MvStoreDBPath() {
         String currentDir = System.getProperty("user.dir");
-        return currentDir + File.separator + "build" + File.separator + DEFAULT_MOQUETTE_STORE_H2_DB_FILENAME;
+        Path dir = Paths.get(currentDir).resolve("build").resolve(String.valueOf(Thread.currentThread().getId()));
+        dir.toFile().mkdir();
+        dir.toFile().deleteOnExit();
+        return dir.resolve(DEFAULT_MOQUETTE_STORE_H2_DB_FILENAME).toAbsolutePath().toString();
     }
 
     public static Properties prepareTestProperties() {

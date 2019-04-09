@@ -12,7 +12,7 @@ jobs:
           key: gradle-{{ checksum "build.gradle" }}
       - run:
           name: Run test
-          command: ./gradlew clean moquette-broker:build
+          command: ./gradlew clean moquette-broker:build --info
       - save_cache:
           key: gradle-{{ checksum "build.gradle" }}
           paths:
