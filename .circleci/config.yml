@@ -36,7 +36,12 @@ jobs:
       - setup_remote_docker
       - run:
           name: Release moquette-broker to Artifactory
-          command: ./gradlew moquette-broker:artifactoryPublish --info --stacktrace -PpublishVersion=$CIRCLE_SHA1
+          command: |
+              if [ "${CIRCLE_BRANCH}" == "release" ]; then
+                  ./gradlew moquette-broker:artifactoryPublish --info --stacktrace -PpublishRelease=true -PpublishVersion=$CIRCLE_SHA1
+              else
+                  ./gradlew moquette-broker:artifactoryPublish --info --stacktrace -PpublishVersion=$CIRCLE_SHA1
+              fi
 workflows:
   version: 2
   build_and_deploy:
