@@ -1,4 +1,5 @@
 allprojects  {
+  apply plugin: 'com.jfrog.artifactory'
   apply plugin: 'maven'
   apply plugin: 'maven-publish'
 
@@ -13,6 +14,7 @@ buildscript {
     }
   }
   dependencies {
+    classpath "org.jfrog.buildinfo:build-info-extractor-gradle:4.9.5"
     classpath 'net.ltgt.gradle:gradle-errorprone-plugin:0.0.13'
     classpath 'gradle.plugin.com.github.spotbugs:gradlePlugin:1.6.0'
     classpath 'com.github.jengelman.gradle.plugins:shadow:1.2.3'
@@ -84,30 +86,31 @@ subprojects {
     }
   }
 
-  // Deploy set environment variables and run ./gradlew bintrayUpload
-  // publication to maven repo
+  String publishVersion = project.hasProperty('publishVersion') ? (
+      project.hasProperty('publishRelease') ? "${project.publishVersion}" : "${project.publishVersion}-SNAPSHOT"
+  ) : "dummy"
+
   publishing {
     publications {
-      bintrayPublication(MavenPublication) {
+      mavenJava(MavenPublication) {
         from components.java
-        groupId "$project.group"
-        artifactId "${project.name}"
-        version '0.13-SNAPSHOT'
+        version publishVersion
+
+        artifact sourceJar
+        artifact javadocJar
       }
     }
   }
 
-  bintray {
-    println "Bintray deploy with user [${System.getenv('BINTRAY_USER')}] while working on ${project.name}"
-    user = System.getenv('BINTRAY_USER')
-    key = System.getenv('BINTRAY_KEY')
-    pkg {
-      repo = 'maven'//"${project.group}"
-      name = "${project.group}.${project.name}"
-      userOrg = 'andsel'
-      licenses = ['Apache-2.0']
-      vcsUrl = "https://api.bintray.com/maven/andsel/maven/${project.group}.${project.name}"
-      publications = ['bintrayPublication']
+  String publishRepo = project.hasProperty('publishRelease') ?  'libs-release-local' : 'libs-snapshot-local'
+  artifactory {
+    contextUrl = 'https://treasuredata.artifactoryonline.com/treasuredata'
+    publish {
+      repository {
+        repoKey = publishRepo
+        username = "${System.env.TD_ARTIFACTORY_USERNAME}"
+        password = "${System.env.TD_ARTIFACTORY_PASSWORD}"
+      }
     }
   }
 }

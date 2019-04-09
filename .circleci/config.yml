@@ -1,0 +1,47 @@
+version: 2
+jobs:
+  test:
+    docker:
+      - image: circleci/openjdk:8
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies
+          command: sudo apt-get install libssl-dev libapr1 libapr1-dev
+      - restore_cache:
+          key: gradle-{{ checksum "build.gradle" }}
+      - run:
+          name: Run test
+          command: ./gradlew clean moquette-broker:build --info
+      - save_cache:
+          key: gradle-{{ checksum "build.gradle" }}
+          paths:
+             - ~/.gradle/caches/
+      - run:
+          name: Collect tests reports
+          command: |
+            mkdir -p ~/junit/
+            find . -type f -regex ".*/build/test-results/.*xml" -exec cp {} ~/junit/ \;
+          when: always
+      - store_test_results:
+          path: ~/junit
+  release_broker:
+    working_directory: ~/broker
+    docker:
+      - image: circleci/openjdk:8
+    steps:
+      - checkout
+      - restore_cache:
+          key: gradle-{{ checksum "build.gradle" }}
+      - setup_remote_docker
+      - run:
+          name: Release moquette-broker to Artifactory
+          command: ./gradlew moquette-broker:artifactoryPublish --info --stacktrace -PpublishVersion=$CIRCLE_SHA1
+workflows:
+  version: 2
+  build_and_deploy:
+    jobs:
+      - test
+      - release_broker:
+          requires:
+            - test
